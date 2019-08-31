@@ -37,6 +37,9 @@ var Mux = &APIMux{
 
 // SetPublic sets the public folder path.
 func (mux *APIMux) SetPublic(folderPath string) {
+	mux.mu.RLock()
+	defer mux.mu.RUnlock()
+
 	if fi, err := os.Stat(folderPath); os.IsNotExist(err) || !fi.IsDir() {
 		panic("xo: given pulic folder path is not valid: " + folderPath)
 	}
@@ -45,6 +48,9 @@ func (mux *APIMux) SetPublic(folderPath string) {
 
 // SetPath sets the API URL path.
 func (mux *APIMux) SetPath(path string) {
+	mux.mu.RLock()
+	defer mux.mu.RUnlock()
+
 	m, err := regexp.MatchString(`^(\/[\w-]+)+$`, path)
 	if err != nil {
 		panic("xo: regexp error on path validation...\n" + err.Error())
@@ -57,6 +63,9 @@ func (mux *APIMux) SetPath(path string) {
 
 // SetKey sets the API name query key.
 func (mux *APIMux) SetKey(key string) {
+	mux.mu.RLock()
+	defer mux.mu.RUnlock()
+
 	m, err := regexp.MatchString(`^[\w-]+$`, key)
 	if err != nil {
 		panic("xo: regexp error on API name query key validation...\n" + err.Error())
@@ -74,12 +83,12 @@ func (mux *APIMux) SetKey(key string) {
 // no registered handler that applies to the request,
 // Handler returns a nil handler.
 func (mux *APIMux) Handler(r *http.Request) (h http.Handler) {
+	mux.mu.RLock()
+	defer mux.mu.RUnlock()
+
 	if r.URL.Path != mux.path {
 		return nil
 	}
-
-	mux.mu.RLock()
-	defer mux.mu.RUnlock()
 
 	h, ok := mux.m[strings.ToLower(r.URL.Query().Get(mux.key))]
 	if ok {
