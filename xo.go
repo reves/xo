@@ -15,10 +15,10 @@ type Route struct {
 	methods map[string]reflect.Value
 }
 
-func Run(router any) {
+func getRoutes(router any) map[string]Route {
+	routes := make(map[string]Route)
 	routerType := reflect.TypeOf(router)
 	routerValue := reflect.ValueOf(router)
-	routes := make(map[string]Route)
 
 	// Routes
 	for i := 0; i < routerType.NumField(); i++ {
@@ -38,16 +38,23 @@ func Run(router any) {
 		}
 	}
 
+	return routes
+}
+
+func Run(router any, view http.HandlerFunc) {
+	routes := getRoutes(router)
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		requestedPath := path.Join("./public", r.URL.Path)
 
 		// Serve files
+		requestedPath := path.Join("./public", r.URL.Path)
 		if fi, err := os.Stat(requestedPath); err == nil && !fi.IsDir() {
 			http.FileServer(http.Dir("./public")).ServeHTTP(w, r)
 			return
 		}
 
-		path := r.URL.Path[1:]
+		// Get URL path
+		path := strings.ToLower(r.URL.Path[1:])
 		l := len(path)
 
 		// Remove trailing slash
@@ -60,19 +67,21 @@ func Run(router any) {
 			return
 		}
 
-		// Parse route name
-		if l == 0 {
-			fmt.Fprint(w, "Home page")
+		// View
+		if l == 0 || !strings.HasPrefix(path, "api/") {
+			view(w, r)
 			return
 		}
 
-		parts := strings.Split(r.URL.Path[1:], "/")
+		// Api
+		path = strings.Replace(path, "api/", "", 1)
+		parts := strings.Split(path, "/")
 		count := len(parts)
-		routeName := strings.ToLower(parts[0])
-		methodName := "index"
+		routeName := parts[0]
 
+		methodName := "index"
 		if count > 1 {
-			methodName = strings.ToLower(parts[1])
+			methodName = parts[1]
 		}
 
 		if route, ok := routes[routeName]; ok {
